@@ -31,9 +31,11 @@ hiddenSize = outDim^2*numFilters;
 % we'll choose weights uniformly from the interval [-r, r]
 r  = sqrt(6) / sqrt(numClasses+hiddenSize+1);
 Wd = rand(numClasses, hiddenSize) * 2 * r - r;
+%Wd(end, :) = 0;
 
 bc = zeros(numFilters, 1);
 bd = zeros(numClasses, 1);
+%bd(end) = 0;
 
 % Convert weights and bias gradients to the vector form.
 % This step will "unroll" (flatten and concatenate together) all 

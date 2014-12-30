@@ -41,6 +41,9 @@ numImages = size(images,3); % number of images
 [Wc, Wd, bc, bd] = cnnParamsToStack(theta,imageDim,filterDim,numFilters,...
                         poolDim,numClasses);
 
+%Wd(end, :) = 0;
+%bd(end) = 0;
+
 % Same sizes as Wc,Wd,bc,bd. Used to hold gradient w.r.t above params.
 Wc_grad = zeros(size(Wc));
 Wd_grad = zeros(size(Wd));
@@ -127,7 +130,6 @@ end;
 %  quickly.
 
 %%% YOUR CODE HERE %%%
-% TODO
 t = zeros(size(probs));
 t(I) = 1;
 t = t - probs;
@@ -168,6 +170,9 @@ for i = 1:numFilters
         bc_grad(i) = bc_grad(i) + sum(sum(squeeze(Dc(:,:,i,j))));
     end
 end
+
+%Wd_grad(end, :) = 0;
+%bd_grad(end) = 0;
 
 %% Unroll gradient into grad vector for minFunc
 grad = [Wc_grad(:) ; Wd_grad(:) ; bc_grad(:) ; bd_grad(:)];
