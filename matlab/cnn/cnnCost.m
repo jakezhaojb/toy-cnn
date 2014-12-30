@@ -72,8 +72,8 @@ activations = zeros(convDim,convDim,numFilters,numImages);
 activationsPooled = zeros(outputDim,outputDim,numFilters,numImages);
 
 %%% YOUR CODE HERE %%%
-activationsPooled = cnnConvolve(filterDim, numFilters, images, Wc, bc);
-activationsPooled = cnnPool(poolDim, activationsPooled);
+activations = cnnConvolve(filterDim, numFilters, images, Wc, bc);
+activationsPooled = cnnPool(poolDim, activations);
     
 % Reshape activations into 2-d matrix, hiddenSize x numImages,
 % for Softmax layer
@@ -90,7 +90,7 @@ activationsPooled = reshape(activationsPooled,[],numImages);
 probs = zeros(numClasses,numImages);
 
 %%% YOUR CODE HERE %%%
-probs = exp(Wd' * activationPooled + bd);
+probs = exp(bsxfun(@plus, Wd * activationsPooled, bd));
 sumProbs = sum(probs, 1);
 probs = bsxfun(@times, probs, 1 ./ sumProbs);
 
@@ -106,7 +106,7 @@ cost = 0; % save objective into cost
 probsL = log(probs);
 I = sub2ind(size(probs), reshape(labels, 1, []), 1:numImages);
 probsL = probsL(I);
-f = -sum(probsL);
+cost = -sum(probsL);
 
 % Makes predictions given probs and returns without backproagating errors.
 if pred
@@ -127,11 +127,20 @@ end;
 %  quickly.
 
 %%% YOUR CODE HERE %%%
-% Softmax delta
 % TODO
-Dd = 
-
-
+t = zeros(size(probs));
+t(I) = 1;
+t = t - probs;
+Dd = -t; % softmax delta
+DcPooled = reshape(Wd' * Dd, [outputDim, outputDim, numFilters, numImages]); % TODO verify
+Dc = zeros(convDim, convDim, numFilters, numImages); % TODO subject to change
+for i = 1:numImages
+    for j = 1:numFilters
+        Dc(:,:,j,i) = kron(squeeze(DcPooled(:,:,j,i)), ones(poolDim)) * (1 / poolDim^2); % Upsample
+        activated = squeeze(activations(:,:,j,i));
+        Dc(:,:,j,i) = squeeze(Dc(:,:,j,i)) .* activated .* (1 - activated);
+    end
+end
 
 
 %%======================================================================
@@ -143,6 +152,22 @@ Dd =
 %  for that filter with each image and aggregate over images.
 
 %%% YOUR CODE HERE %%%
+Wd_grad_ = zeros(numel(Wd), numImages);
+for i = 1:numImages
+    Wd_grad_(:, i) = -kron(t(:, i), activationsPooled(:, i));
+end
+Wd_grad = reshape(sum(Wd_grad_, 2), size(Wd'));
+Wd_grad = Wd_grad';
+bd_grad = sum(Dd, 2);
+
+for i = 1:numFilters
+    for j = 1:numImages
+        DcR = rot90(squeeze(Dc(:,:,i,j)), 2);
+        im = squeeze(images(:,:,j));
+        Wc_grad(:,:,i) = Wc_grad(:,:,i) + conv2(im, DcR, 'valid');
+        bc_grad(i) = bc_grad(i) + sum(sum(squeeze(Dc(:,:,i,j))));
+    end
+end
 
 %% Unroll gradient into grad vector for minFunc
 grad = [Wc_grad(:) ; Wd_grad(:) ; bc_grad(:) ; bd_grad(:)];
