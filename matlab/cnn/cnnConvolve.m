@@ -1,4 +1,4 @@
-function convolvedFeatures = cnnConvolve(filterDim, numFilters, images, W, b)
+function convolvedFeatures = cnnConvolve(images, W, b)
 %cnnConvolve Returns the convolution of the features given by W and b with
 %the given images
 %
@@ -6,70 +6,41 @@ function convolvedFeatures = cnnConvolve(filterDim, numFilters, images, W, b)
 %  filterDim - filter (feature) dimension
 %  numFilters - number of feature maps
 %  images - large images to convolve with, matrix in the form
-%           images(r, c, image number)
+%           images(r, c, numInplanes, image number)
 %  W, b - W, b for features from the sparse autoencoder
-%         W is of shape (filterDim,filterDim,numFilters)
-%         b is of shape (numFilters,1)
+%         W is of shape (filterDim,filterDim,numInplanes, numOutplanes)
+%         b is of shape (numInplanes, numOutplanes, 1)
 %
 % Returns:
 %  convolvedFeatures - matrix of convolved features in the form
 %                      convolvedFeatures(imageRow, imageCol, featureNum, imageNum)
 
-numImages = size(images, 3);
+
+filterDim = size(W, 1);
+numInplanes = size(W, 3);
+numOutplanes = size(W, 4);
+assert (numInplanes == size(images, 3))
+
+numImages = size(images, 4);
 imageDim = size(images, 1);
 convDim = imageDim - filterDim + 1;
 
-convolvedFeatures = zeros(convDim, convDim, numFilters, numImages);
+convolvedFeatures = zeros(convDim, convDim, numOutplanes, numImages);
 
-% Instructions:
-%   Convolve every filter with every image here to produce the 
-%   (imageDim - filterDim + 1) x (imageDim - filterDim + 1) x numFeatures x numImages
-%   matrix convolvedFeatures, such that 
-%   convolvedFeatures(imageRow, imageCol, featureNum, imageNum) is the
-%   value of the convolved featureNum feature for the imageNum image over
-%   the region (imageRow, imageCol) to (imageRow + filterDim - 1, imageCol + filterDim - 1)
-%
-% Expected running times: 
-%   Convolving with 100 images should take less than 30 seconds 
-%   Convolving with 5000 images should take around 2 minutes
-%   (So to save time when testing, you should convolve with less images, as
-%   described earlier)
-
-
+% ---- Convolutions ----
 for imageNum = 1:numImages
-  for filterNum = 1:numFilters
-
-    % convolution of image with feature matrix
+  for outplane = 1: numOutplanes
     convolvedImage = zeros(convDim, convDim);
-
-    % Obtain the feature (filterDim x filterDim) needed during the convolution
-
-    %%% YOUR CODE HERE %%%
-    filter = W(:,:,filterNum);
-
-    % Flip the feature matrix because of the definition of convolution, as explained later
-    filter = rot90(squeeze(filter),2);
-      
-    % Obtain the image
-    im = squeeze(images(:, :, imageNum));
-
-    % Convolve "filter" with "im", adding the result to convolvedImage
-    % be sure to do a 'valid' convolution
-
-    %%% YOUR CODE HERE %%%
-    convolvedImage = conv2(im, filter, 'valid');
-    
-    % Add the bias unit
-    % Then, apply the sigmoid function to get the hidden activation
-
-    %%% YOUR CODE HERE %%%
-    convolvedImage = convolvedImage + b(filterNum);
-    convolvedImage = 1 ./ (1+exp(-convolvedImage));
-    
-    convolvedFeatures(:, :, filterNum, imageNum) = convolvedImage;
+    for inplane = 1: numInplanes
+      filter = W(:,:,inplane,outplane);
+      filter = rot90(squeeze(filter), 2);
+      im = squeeze(images(:,:,inplane,imageNum));
+      convolvedImageLoop = conv2(im, filter, 'valid') + b(outplane);
+      convolvedImageLoop = 1 ./ (1+exp(-convolvedImageLoop));
+      convolvedImage = convolvedImage + convolvedImageLoop;
+    end
+    convolvedFeatures(:,:,outplane,imageNum) = convolvedImage;
   end
 end
 
-
 end
-

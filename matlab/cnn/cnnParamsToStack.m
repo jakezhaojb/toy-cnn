@@ -1,5 +1,6 @@
-function [Wc, Wd, bc, bd] = cnnParamsToStack(theta,imageDim,filterDim,...
-                                 numFilters,poolDim,numClasses)
+function [Wc0, Wc1, Wd, bc0, bc1, bd] = cnnParamsToStack(theta,imageDim0,filterDim0,numInplane0,numOutplane0,poolDim0,...
+                                             imageDim1,filterDim1,numInplane1,numOutplane1,poolDim1,...
+                                             numClasses)
 % Converts unrolled parameters for a single layer convolutional neural
 % network followed by a softmax layer into structured weight
 % tensors/matrices and corresponding biases
@@ -20,19 +21,26 @@ function [Wc, Wd, bc, bd] = cnnParamsToStack(theta,imageDim,filterDim,...
 %  bc      -  bias for convolution layer of size numFilters x 1
 %  bd      -  bias for dense layer of size hiddenSize x 1
 
-outDim = (imageDim - filterDim + 1)/poolDim;
-hiddenSize = outDim^2*numFilters;
+outDim0 = (imageDim0 - filterDim0 + 1)/poolDim0;
+outDim1 = (imageDim1 - filterDim1 + 1)/poolDim1;
+hiddenSize = outDim1^2*numOutplane1;
 
 %% Reshape theta
 indS = 1;
-indE = filterDim^2*numFilters;
-Wc = reshape(theta(indS:indE),filterDim,filterDim,numFilters);
+indE = filterDim0^2*numInplane0*numOutplane0;
+Wc0 = reshape(theta(indS:indE),filterDim0,filterDim0,numInplane0,numOutplane0);
+indS = indE+1;
+indE = indE + filterDim1^2*numInplane1*numOutplane1;
+Wc1 = reshape(theta(indS:indE),filterDim1,filterDim1,numInplane1,numOutplane1);
 indS = indE+1;
 indE = indE+hiddenSize*numClasses;
 Wd = reshape(theta(indS:indE),numClasses,hiddenSize);
 indS = indE+1;
-indE = indE+numFilters;
-bc = theta(indS:indE);
+indE = indE+numOutplane0;
+bc0 = reshape(theta(indS:indE),numOutplane0,1);
+indS = indE+1;
+indE = indE+numOutplane1;
+bc1 = reshape(theta(indS:indE),numOutplane1,1);
 bd = theta(indE+1:end);
 
 

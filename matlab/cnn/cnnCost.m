@@ -1,5 +1,6 @@
 function [cost, grad, preds] = cnnCost(theta,images,labels,numClasses,...
-                                filterDim,numFilters,poolDim,pred)
+                                filterDim0,numInplane0,numOutplane0,poolDim0,...
+                                filterDim1,numInplane1,numOutplane1,poolDim1,pred)
 % Calcualte cost and gradient for a single layer convolutional
 % neural network followed by a softmax layer with cross entropy
 % objective.
@@ -15,6 +16,11 @@ function [cost, grad, preds] = cnnCost(theta,images,labels,numClasses,...
 %  pred       -  boolean only forward propagate and return
 %                predictions
 %
+% Added Paramaters:
+%  filterDim0
+%  numFilters0 
+%  poolDim0 
+%  
 %
 % Returns:
 %  cost       -  cross entropy cost
@@ -27,27 +33,32 @@ if ~exist('pred','var')
 end;
 
 
-imageDim = size(images,1); % height/width of image
-numImages = size(images,3); % number of images
+imageDim0 = size(images,1); % height/width of image
+imageDim1 = (imageDim0-filterDim0+1)/poolDim0;
+numImageChannel = size(images, 3);
+numImages = size(images,4); % number of images
 
 %% Reshape parameters and setup gradient matrices
 
-% Wc is filterDim x filterDim x numFilters parameter matrix
-% bc is the corresponding bias
+% Wc1 is filterDim x filterDim x numFilters parameter matrix
+% bc1 is the corresponding bias
 
 % Wd is numClasses x hiddenSize parameter matrix where hiddenSize
 % is the number of output units from the convolutional layer
 % bd is corresponding bias
-[Wc, Wd, bc, bd] = cnnParamsToStack(theta,imageDim,filterDim,numFilters,...
-                        poolDim,numClasses);
+[Wc0, Wc1, Wd, bc0, bc1, bd] = cnnParamsToStack(theta,imageDim0,filterDim0,numInplane0,numOutplane0,poolDim0,...
+                                                imageDim1,filterDim1,numInplane1,numOutplane1,poolDim1,...
+                                                numClasses);
 
 %Wd(end, :) = 0;
 %bd(end) = 0;
 
-% Same sizes as Wc,Wd,bc,bd. Used to hold gradient w.r.t above params.
-Wc_grad = zeros(size(Wc));
+% Same sizes as Wc1,Wd,bc1,bd. Used to hold gradient w.r.t above params.
+Wc1_grad = zeros(size(Wc1));
+Wc0_grad = zeros(size(Wc0));
 Wd_grad = zeros(size(Wd));
-bc_grad = zeros(size(bc));
+bc1_grad = zeros(size(bc1));
+bc0_grad = zeros(size(bc0));
 bd_grad = zeros(size(bd));
 
 %%======================================================================
@@ -64,23 +75,28 @@ bd_grad = zeros(size(bd));
 %  convolution in activations and the results of the pooling in
 %  activationsPooled.  You will need to save the convolved activations for
 %  backpropagation.
-convDim = imageDim-filterDim+1; % dimension of convolved output
-outputDim = (convDim)/poolDim; % dimension of subsampled output
+convDim0 = imageDim0-filterDim0+1; % dimension of convolved output
+outputDim0 = (convDim0)/poolDim0; % dimension of subsampled output
+convDim1 = outputDim0-filterDim1+1; % dimension of convolved output
+outputDim1 = (convDim1)/poolDim1; % dimension of subsampled output
 
 % convDim x convDim x numFilters x numImages tensor for storing activations
-activations = zeros(convDim,convDim,numFilters,numImages);
+activations0 = zeros(convDim0,convDim0,numOutplane0,numImages);
+activations1 = zeros(convDim1,convDim1,numOutplane1,numImages);
 
 % outputDim x outputDim x numFilters x numImages tensor for storing
 % subsampled activations
-activationsPooled = zeros(outputDim,outputDim,numFilters,numImages);
+activationsPooled0 = zeros(outputDim0,outputDim0,numOutplane0,numImages);
+activationsPooled1 = zeros(outputDim1,outputDim1,numOutplane1,numImages);
 
-%%% YOUR CODE HERE %%%
-activations = cnnConvolve(filterDim, numFilters, images, Wc, bc);
-activationsPooled = cnnPool(poolDim, activations);
+activations0 = cnnConvolve(images, Wc0, bc0);
+activationsPooled0 = cnnPool(poolDim0, activations0);
+activations1 = cnnConvolve(activationsPooled0, Wc1, bc1);
+activationsPooled1 = cnnPool(poolDim1, activations1);
     
 % Reshape activations into 2-d matrix, hiddenSize x numImages,
 % for Softmax layer
-activationsPooled = reshape(activationsPooled,[],numImages);
+activationsPooled = reshape(activationsPooled1,[],numImages);
 
 %% Softmax Layer
 %  Forward propagate the pooled activations calculated above into a
@@ -105,7 +121,6 @@ probs = bsxfun(@times, probs, 1 ./ sumProbs);
 
 cost = 0; % save objective into cost
 
-%%% YOUR CODE HERE %%%
 probsL = log(probs);
 I = sub2ind(size(probs), reshape(labels, 1, []), 1:numImages);
 probsL = probsL(I);
@@ -129,22 +144,38 @@ end;
 %  Use the kron function and a matrix of ones to do this upsampling 
 %  quickly.
 
-%%% YOUR CODE HERE %%%
 t = zeros(size(probs));
 t(I) = 1;
 t = t - probs;
 Dd = -t; % softmax delta
-DcPooled = reshape(Wd' * Dd, [outputDim, outputDim, numFilters, numImages]); % TODO verify
-Dc = zeros(convDim, convDim, numFilters, numImages); % TODO subject to change
+DcPooled1 = reshape(Wd' * Dd, [outputDim1, outputDim1, numOutplane1, numImages]); % TODO verify
+Dc1 = zeros(convDim1, convDim1, numOutplane1, numImages); % TODO subject to change
 for i = 1:numImages
-    for j = 1:numFilters
-        Dc(:,:,j,i) = kron(squeeze(DcPooled(:,:,j,i)), ones(poolDim)) * (1 / poolDim^2); % Upsample
-        activated = squeeze(activations(:,:,j,i));
-        Dc(:,:,j,i) = squeeze(Dc(:,:,j,i)) .* activated .* (1 - activated);
+    for j = 1:numOutplane1
+        Dc1(:,:,j,i) = kron(squeeze(DcPooled1(:,:,j,i)), ones(poolDim1)) * (1 / poolDim1^2); % Upsample
+        activated = squeeze(activations1(:,:,j,i));
+        Dc1(:,:,j,i) = squeeze(Dc1(:,:,j,i)) .* activated .* (1 - activated);
     end
 end
 
-
+% TODO critical step here
+DcPooled0 = zeros(outputDim0, outputDim0, numOutplane0, numImages);
+for i = 1:numImages
+    for j = 1: numOutplane0
+        for k = 1: numOutplane1
+            filt = squeeze(Wc1(:,:,j,k));
+            DcPooled0(:,:,j,i) = DcPooled0(:,:,j,i) + conv2(squeeze(Dc1(:,:,k,i)), filt,'full'); % TODO summarize
+        end
+    end
+end
+Dc0 = zeros(convDim0, convDim0, numOutplane0, numImages);
+for i = 1:numImages
+    for j = 1:numOutplane0
+        Dc0(:,:,j,i) = kron(squeeze(DcPooled0(:,:,j,i)), ones(poolDim0)) * ( 1 / poolDim0^2);
+        activated = squeeze(activations0(:,:,j,i));
+        Dc0(:,:,j,i) = squeeze(Dc0(:,:,j,i)) .* activated .* (1 - activated);
+    end
+end
 %%======================================================================
 %% STEP 1d: Gradient Calculation
 %  After backpropagating the errors above, we can use them to calculate the
@@ -153,7 +184,6 @@ end
 %  a filter in the convolutional layer, convolve the backpropagated error
 %  for that filter with each image and aggregate over images.
 
-%%% YOUR CODE HERE %%%
 Wd_grad_ = zeros(numel(Wd), numImages);
 for i = 1:numImages
     Wd_grad_(:, i) = -kron(t(:, i), activationsPooled(:, i));
@@ -162,12 +192,25 @@ Wd_grad = reshape(sum(Wd_grad_, 2), size(Wd'));
 Wd_grad = Wd_grad';
 bd_grad = sum(Dd, 2);
 
-for i = 1:numFilters
-    for j = 1:numImages
-        DcR = rot90(squeeze(Dc(:,:,i,j)), 2);
-        im = squeeze(images(:,:,j));
-        Wc_grad(:,:,i) = Wc_grad(:,:,i) + conv2(im, DcR, 'valid');
-        bc_grad(i) = bc_grad(i) + sum(sum(squeeze(Dc(:,:,i,j))));
+for i = 1: numImages
+    for j = 1: numOutplane1
+        DcR = rot90(squeeze(Dc1(:,:,j,i)), 2);
+        for k = 1: numInplane1
+            im = squeeze(activationsPooled0(:,:,k,i));
+            Wc1_grad(:,:,k,j) = Wc1_grad(:,:,k,j) + conv2(im, DcR, 'valid');
+            bc1_grad(j) = bc1_grad(j) + sum(sum(squeeze(Dc1(:,:,j,i))));
+        end
+    end
+end
+
+for i = 1:numImages
+    for j = 1:numOutplane0
+        DcR = rot90(squeeze(Dc0(:,:,j,i)), 2);
+        for k = 1:numInplane0
+            im = squeeze(images(:,:,k,i));
+            Wc0_grad(:,:,k,j) = Wc0_grad(:,:,k,j) + conv2(im, DcR, 'valid');
+            bc0_grad(j) = bc0_grad(j) + sum(sum(squeeze(Dc0(:,:,j,i))));
+        end
     end
 end
 
@@ -175,6 +218,6 @@ end
 %bd_grad(end) = 0;
 
 %% Unroll gradient into grad vector for minFunc
-grad = [Wc_grad(:) ; Wd_grad(:) ; bc_grad(:) ; bd_grad(:)];
+grad = [Wc0_grad(:) ; Wc1_grad(:) ; Wd_grad(:) ; bc0_grad(:) ; bc1_grad(:) ; bd_grad(:)];
 
 end
