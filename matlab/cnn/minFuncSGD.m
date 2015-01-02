@@ -55,7 +55,7 @@ for e = 1:epochs
         end;
 
         % get next randomly selected minibatch
-        mb_data = data(:,:,rp(s:s+minibatch-1));
+        mb_data = data(:,:,:,rp(s:s+minibatch-1));
         mb_labels = labels(rp(s:s+minibatch-1));
 
         % evaluate the objective function on the next minibatch
@@ -67,7 +67,6 @@ for e = 1:epochs
         % sgd update rule
         
         %%% YOUR CODE HERE %%%
-        % TODO figure it out!!!!
         velocity = mom * velocity + alpha * grad / minibatch;
         theta = theta - velocity;
         

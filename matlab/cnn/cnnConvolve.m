@@ -36,9 +36,9 @@ for imageNum = 1:numImages
       filter = rot90(squeeze(filter), 2);
       im = squeeze(images(:,:,inplane,imageNum));
       convolvedImageLoop = conv2(im, filter, 'valid') + b(outplane);
-      convolvedImageLoop = 1 ./ (1+exp(-convolvedImageLoop));
       convolvedImage = convolvedImage + convolvedImageLoop;
     end
+    convolvedImage = 1 ./ (1+exp(-convolvedImage)); % TODO summarize -- summation prior to activating!!!
     convolvedFeatures(:,:,outplane,imageNum) = convolvedImage;
   end
 end

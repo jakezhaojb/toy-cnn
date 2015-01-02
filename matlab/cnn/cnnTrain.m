@@ -46,7 +46,7 @@ theta = cnnInitParams(imageDim0,filterDim0,numInplane0,numOutplane0,poolDim0,...
 %  calculation for your cnnCost.m function.  You may need to add the
 %  appropriate path or copy the file to this directory.
 
-DEBUG=true;  % set this to true to check gradient
+DEBUG=false;  % set this to true to check gradient
 if DEBUG
     % To speed up gradient checking, we will use a reduced network and
     % a debugging data set
