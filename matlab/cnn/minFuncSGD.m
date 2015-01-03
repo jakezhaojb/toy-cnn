@@ -22,8 +22,7 @@ function [opttheta] = minFuncSGD(funObj,theta,data,labels,...
 %  momentum    - momentum constant, defualts to 0.9
 
 
-%%======================================================================
-%% Setup
+%% --------- Setup -----------
 assert(all(isfield(options,{'epochs','alpha','minibatch'})),...
         'Some options not defined');
 if ~isfield(options,'momentum')
@@ -38,8 +37,7 @@ mom = 0.5;
 momIncrease = 20;
 velocity = zeros(size(theta));
 
-%%======================================================================
-%% SGD loop
+%% ---------- SGD loop -----------
 it = 0;
 for e = 1:epochs
     
@@ -49,24 +47,17 @@ for e = 1:epochs
     for s=1:minibatch:(m-minibatch+1)
         it = it + 1;
 
-        % increase momentum after momIncrease iterations
+        % momentum enable
         if it == momIncrease
             mom = options.momentum;
         end;
 
-        % get next randomly selected minibatch
+        % mini-batch pick
         mb_data = data(:,:,:,rp(s:s+minibatch-1));
         mb_labels = labels(rp(s:s+minibatch-1));
 
-        % evaluate the objective function on the next minibatch
         [cost grad] = funObj(theta,mb_data,mb_labels);
         
-        % Instructions: Add in the weighted velocity vector to the
-        % gradient evaluated above scaled by the learning rate.
-        % Then update the current weights theta according to the
-        % sgd update rule
-        
-        %%% YOUR CODE HERE %%%
         velocity = mom * velocity + alpha * grad / minibatch;
         theta = theta - velocity;
         

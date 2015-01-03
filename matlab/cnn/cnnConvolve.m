@@ -1,19 +1,18 @@
 function convolvedFeatures = cnnConvolve(images, W, b)
-%cnnConvolve Returns the convolution of the features given by W and b with
-%the given images
 %
 % Parameters:
-%  filterDim - filter (feature) dimension
-%  numFilters - number of feature maps
 %  images - large images to convolve with, matrix in the form
-%           images(r, c, numInplanes, image number)
+%           images(r, c, inplane number, image number)
 %  W, b - W, b for features from the sparse autoencoder
-%         W is of shape (filterDim,filterDim,numInplanes, numOutplanes)
-%         b is of shape (numInplanes, numOutplanes, 1)
+%         W is of shape (filterDim,filterDim,numInplanes,numOutplanes)
+%         b is of shape (numOutplanes,1)
 %
 % Returns:
 %  convolvedFeatures - matrix of convolved features in the form
 %                      convolvedFeatures(imageRow, imageCol, featureNum, imageNum)
+% Important:
+%  Summation across input planes should be performed before activation,
+%  i.e., for each output plane computation, only activate once.
 
 
 filterDim = size(W, 1);
@@ -38,7 +37,8 @@ for imageNum = 1:numImages
       convolvedImageLoop = conv2(im, filter, 'valid') + b(outplane);
       convolvedImage = convolvedImage + convolvedImageLoop;
     end
-    convolvedImage = 1 ./ (1+exp(-convolvedImage)); % TODO summarize -- summation prior to activating!!!
+    % Summation across input planes is prior to being activated!
+    convolvedImage = 1 ./ (1+exp(-convolvedImage)); 
     convolvedFeatures(:,:,outplane,imageNum) = convolvedImage;
   end
 end

@@ -8,17 +8,20 @@ function [Wc0, Wc1, Wd, bc0, bc1, bd] = cnnParamsToStack(theta,imageDim0,filterD
 % Parameters:
 %  theta      -  unrolled parameter vectore
 %  imageDim   -  height/width of image
-%  filterDim  -  dimension of convolutional filter                            
+%  numInplane -  number of input planes
+%  numOutplane -  number of output planes
 %  numFilters -  number of convolutional filters
 %  poolDim    -  dimension of pooling area
 %  numClasses -  number of classes to predict
 %
 %
 % Returns:
-%  Wc      -  filterDim x filterDim x numFilters parameter matrix
+%  Wc0      -  filterDim x filterDim x numInplanes0 x numOutplane0 parameter tensor
+%  Wc1      -  filterDim x filterDim x numInplanes1 x numOutplane1 parameter tensor
 %  Wd      -  numClasses x hiddenSize parameter matrix, hiddenSize is
-%             calculated as numFilters*((imageDim-filterDim+1)/poolDim)^2 
-%  bc      -  bias for convolution layer of size numFilters x 1
+%             calculated as numFilters*((imageDim1-filterDim1+1)/poolDim1)^2 
+%  bc0      -  bias for convolution layer of size numOutplane0 x 1
+%  bc1      -  bias for convolution layer of size numOutplane1 x 1
 %  bd      -  bias for dense layer of size hiddenSize x 1
 
 outDim0 = (imageDim0 - filterDim0 + 1)/poolDim0;
